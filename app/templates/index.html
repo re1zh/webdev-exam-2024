@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="d-flex-column text-center my-5 justify-content-center">
+        <h4>Readabookk - лучшая электронная библиотека!</h4>
+        <p>Лучшее собрание книг со всего света</p>
+        <a  {% if current_user.is_authenticated %}
+                href="{{url_for('index')}}"
+            {% else %}
+                href="#"
+            {% endif %}
+        >
+            <button type="submit" class="btn btn-primary my-3 w-25 text-center">Приступить</button>
+        </a>
+    </div>
+{% endblock %}
