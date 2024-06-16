@@ -5,9 +5,9 @@
         <h4>Readabookk - лучшая электронная библиотека!</h4>
         <p>Лучшее собрание книг со всего света</p>
         <a  {% if current_user.is_authenticated %}
-                href="{{url_for('index')}}"
+                href="{{url_for('books')}}"
             {% else %}
-                href="#"
+                href="{{url_for('login')}}"
             {% endif %}
         >
             <button type="submit" class="btn btn-primary my-3 w-25 text-center">Приступить</button>

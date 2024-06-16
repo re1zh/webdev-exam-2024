@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Добавление книги</h1>
+    {% from "form_book.html" import render_book_form %}
+    {{ render_book_form(genres=genres) }}
+{% endblock %}
