@@ -15,6 +15,3 @@ class UsersPolicy:
 
     def create_review(self):
         return True
-
-    def edit_review(self):
-        return current_user.is_admin() or current_user.is_moderator()

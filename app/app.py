@@ -96,6 +96,16 @@ def check_for_privelege(action):
     return decorator
 
 
+@db_operation
+def get_date(cursor):
+    query = (
+        "SELECT now() as date "
+    )
+    cursor.execute(query)
+    date = cursor.fetchone()
+    return date
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -272,7 +282,7 @@ def create_book(cursor):
                     f.write(cover_data)
 
             flash('Книга успешно добавлена', 'success')
-            return redirect(url_for('books'))
+            return redirect(url_for('view_book', id_book=book_id))
 
         except connector.errors.DatabaseError as error:
             flash(f'При сохранении данных возникла ошибка. Проверьте корректность введённых данных: {error}', 'danger')
@@ -289,18 +299,22 @@ def create_book(cursor):
 @app.route('/<int:id_book>/view_book')
 @db_operation
 def view_book(cursor, id_book):
-    query = (f"""
-        SELECT * FROM book WHERE id = %s
-    """)
-    cursor.execute(query, [id_book])
-    book = cursor.fetchone()
-
-    if not book:
-        flash(f'Такой книги нет в базе данных', 'danger')
-
     try:
         query = (f"""
-            SELECT * FROM review WHERE book_id = %s
+            SELECT * FROM book WHERE id = %s
+        """)
+        cursor.execute(query, [id_book])
+        book = cursor.fetchone()
+
+        if not book:
+            flash(f'Такой книги нет в базе данных', 'danger')
+
+        query = (f"""
+            SELECT review.*, user.surname, user.name, user.patronymic
+            FROM review
+            JOIN user
+            ON review.user_id = user.id
+            WHERE book_id = %s
         """)
         cursor.execute(query, [id_book])
         reviews = cursor.fetchall()
@@ -332,15 +346,6 @@ def view_book(cursor, id_book):
         else:
             cover_data = None
 
-
-        for review in reviews:
-            query = (f"""
-                SELECT name, surname FROM user WHERE id = %s
-            """)
-            cursor.execute(query, [review.user_id])
-            user = cursor.fetchone()
-            review.user = f"{user.surname} {user.name}" if user else "Неизвестно"
-
         if current_user.is_authenticated:
             query = (f"""
                 SELECT * FROM review WHERE book_id = %s AND user_id = %s
@@ -354,7 +359,7 @@ def view_book(cursor, id_book):
         flash(f'Ошибка при получении данных книги: {error}', 'danger')
         return redirect(url_for('books'))
     return render_template('view_book.html', book=book, genres=genres,
-        cover_data=cover_data,user_review=user_review)
+        cover_data=cover_data, user_review=user_review, reviews=reviews)
 
 
 @app.route('/<int:id_book>/edit_book', methods=['GET', 'POST'])
@@ -362,17 +367,17 @@ def view_book(cursor, id_book):
 @login_required
 @check_for_privelege('edit_book')
 def edit_book(cursor, id_book):
-    query = (f"""
-        SELECT * FROM book WHERE id = %s
-    """)
-    cursor.execute(query, [id_book])
-    book = cursor.fetchone()
-
-    if not book:
-        flash(f'Такой книги нет в базе данных', 'danger')
-
     if request.method == 'POST':
         try:
+            query = (f"""
+                    SELECT * FROM book WHERE id = %s
+                """)
+            cursor.execute(query, [id_book])
+            book = cursor.fetchone()
+
+            if not book:
+                flash(f'Такой книги нет в базе данных', 'danger')
+
             name = request.form['name']
             description = request.form['description']
             year = request.form['year']
@@ -463,6 +468,53 @@ def delete_book(cursor, id_book):
         flash(f'Ошибка при удалении книги: {error}', 'danger')
 
     return redirect(url_for('books'))
+
+
+@app.route('/<int:id_book>/create_review', methods=['GET', 'POST'])
+@db_operation
+@login_required
+@check_for_privelege('create_review')
+def create_review(cursor, id_book):
+    try:
+        query = (f"""
+            SELECT * FROM book WHERE id = %s
+        """)
+        cursor.execute(query, [id_book])
+        book = cursor.fetchone()
+
+        if not book:
+            flash(f'Такой книги нет в базе данных', 'danger')
+
+        query = (f"""
+            SELECT * FROM review WHERE book_id = %s AND user_id = %s
+        """)
+        cursor.execute(query, (id_book, current_user.id))
+        existing_review = cursor.fetchone()
+
+        if existing_review:
+            flash('Вы уже написали рецензию на эту книгу', 'warning')
+            return redirect(url_for('view_book', id_book=id_book))
+
+        if request.method == 'POST':
+            score = request.form['score']
+            text = request.form['text']
+
+            sanitized_text = bleach.clean(text)
+
+            query = (f"""
+                INSERT INTO review (book_id, user_id, score, text, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+            """)
+            cursor.execute(query, (id_book, current_user.id, score, sanitized_text, get_date().date))
+            print('Рецензия вставлена')
+
+            flash('Рецензия успешно добавлена!', 'success')
+            return redirect(url_for('view_book', id_book=id_book))
+
+    except connector.errors.DatabaseError as error:
+        flash(f'Ошибка при добавлении рецензии: {error}', 'danger')
+
+    return render_template('create_review.html')
 
 
 if __name__ == '__main__':
