@@ -55,25 +55,25 @@ def db_operation(func):
         connection = db_connector.connect()
         try:
             start_time = datetime.datetime.now()
-            with connection.cursor(named_tuple=True, buffered=True) as cursor:
-                result = func(cursor, *args, **kwargs)
-                connection.commit()
+            cursor = connection.cursor(buffered=True, named_tuple=True)
+            result = func(cursor, *args, **kwargs)
+            connection.commit()
         except Exception as e:
             connection.rollback()
             raise e
         finally:
             end_time = datetime.datetime.now()
             print(f"Duration {func}: {end_time - start_time}")
-            # connection.close()
+            #connection.close()
         return result
     return wrapper
 
 
 @login_manager.user_loader
-def load_user(user_id):
-    with db_connector.connect().cursor(named_tuple=True) as cursor:
-        cursor.execute("SELECT id, login, role_id FROM user WHERE id = %s;", (user_id,))
-        user = cursor.fetchone()
+@db_operation
+def load_user(cursor, user_id):
+    cursor.execute("SELECT id, login, role_id FROM user WHERE id = %s;", (user_id,))
+    user = cursor.fetchone()
     if user is not None:
         return User(user.id, user.login, user.role_id)
     return None
