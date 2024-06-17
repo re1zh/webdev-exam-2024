@@ -159,7 +159,7 @@ def books(cursor):
             , group_concat(distinct g.name separator ', ') AS genres
             , book.year
             , round(avg(review.score)) AS avg_score
-            , count(review.id) AS review_qty
+            , count(distinct review.id) AS review_qty
             , cover.file_name
             , cover.mime_type
         FROM book
