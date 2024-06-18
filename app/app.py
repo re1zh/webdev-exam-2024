@@ -90,7 +90,7 @@ def check_for_privelege(action):
                     user = cursor.fetchone()
             if not (current_user.is_authenticated and current_user.can(action, user)):
                 flash('Недостаточно прав для доступа к этой странице', 'warning')
-                return redirect(url_for('users.index'))
+                return redirect(url_for('index'))
             return function(*args, **kwargs)
         return wrapper
     return decorator
