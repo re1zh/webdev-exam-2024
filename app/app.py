@@ -185,7 +185,7 @@ def books(cursor):
 
     page_count = ceil(record_count / MAX_PER_PAGE)
     pages = range(max(1, page - 3), min(page_count, page + 3) + 1)
-
+    print(pages)
     return render_template('books.html', books=books,
                            page=page, pages=pages, page_count=page_count)
 
@@ -263,7 +263,6 @@ def create_book(cursor):
                 INSERT INTO book (name, description, year, publisher, author, volume, cover_id)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """)
-
             cursor.execute(query, (name, sanitized_desc, year, publisher, author, volume, cover_id))
             print('Запись вставлена в таблицу book')
 
@@ -367,17 +366,17 @@ def view_book(cursor, id_book):
 @login_required
 @check_for_privelege('edit_book')
 def edit_book(cursor, id_book):
+    query = (f"""
+            SELECT * FROM book WHERE id = %s
+        """)
+    cursor.execute(query, [id_book])
+    book = cursor.fetchone()
+
+    if not book:
+        flash(f'Такой книги нет в базе данных', 'danger')
+
     if request.method == 'POST':
         try:
-            query = (f"""
-                    SELECT * FROM book WHERE id = %s
-                """)
-            cursor.execute(query, [id_book])
-            book = cursor.fetchone()
-
-            if not book:
-                flash(f'Такой книги нет в базе данных', 'danger')
-
             name = request.form['name']
             description = request.form['description']
             year = request.form['year']
@@ -410,14 +409,14 @@ def edit_book(cursor, id_book):
             flash(f'При изменении данных возникла ошибка. Проверьте корректность введённых данных: {error}', 'danger')
 
     query = (f"""
-            SELECT * FROM genre
-        """)
+                SELECT * FROM genre
+            """)
     cursor.execute(query)
     genres = cursor.fetchall()
 
     query = (f"""
-        SELECT genre_id FROM book_genre WHERE book_id = %s
-    """)
+            SELECT genre_id FROM book_genre WHERE book_id = %s
+        """)
     cursor.execute(query, [id_book])
     book_genres = [bg.genre_id for bg in cursor.fetchall()]
 
@@ -439,6 +438,12 @@ def delete_book(cursor, id_book):
         if not book:
             flash(f'Такой книги нет в базе данных', 'danger')
         cover_id = book.cover_id
+
+        query = (f"""
+            DELETE FROM review WHERE book_id = %s
+        """)
+        cursor.execute(query, [id_book])
+        print(f'Все рецензии для книни {book.name} удалены')
 
         query = (f"""
             DELETE FROM book WHERE id = %s
